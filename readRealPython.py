@@ -5,15 +5,18 @@ import numpy as np
 import re
 
 def swap(i, wires):
-    current = ID
-    print(i)
-    for j in range(0, wires-2):
+    if i == 0:
+        current = SWAP.copy()
+    else:
+        current = ID.copy()
+    for j in range(1, wires-1):
         if j == i:
             current = np.kron(current, SWAP)
         else:
             current = np.kron(current,ID)
     if i > j:
             current = np.kron(current, SWAP)
+    print(current)
     return current
 
 
@@ -71,23 +74,23 @@ for i in content:
         result = exp3.search(vars[0])
         res = result.group(1).split()
         size = int(res[0])
-        # create the k-controlled toffoli aligned with bottom bit
+        # create the k-controlled toffoli  and align it with lowest common bit
         for j in range(numvars-size):
             #print('multiple: %i' %j)
             next = np.kron(ID,current)
             print(next.shape)
             current = next
-        nominal = variables
+        #nominal = variables
+        nominal = variables.copy()
         target = vars[1:]
         print(len(target))
         diff = numvars - len(target)
-        print(target)
-        print(nominal)
         front = np.eye(pow(2,numvars))
         print(front.shape)
         back = np.eye(pow(2,numvars))
         for t in range(len(target)-1,-1,-1):
-            nominal = variables.copy()
+            print(target)
+            print(nominal)
             #print(target[t])
             if target[t] != nominal[t+diff]:
                 print('orig: {} current {}'.format(nominal[t+diff], target[t]))
@@ -95,12 +98,12 @@ for i in content:
                 swpsnum = abs(t+diff-indx)
                 print('Needs {}'.format(swpsnum))
                 for q in range(0,swpsnum):
-                    print(indx)
-                    sw = swap(indx, numvars)
+                    print('Insertng at {} in circuit with {} wires'.format(indx+q,numvars))
+                    sw = swap(indx+q, numvars)
                     front = front*sw
                     back = sw*back
                     nominal[indx+q],nominal[indx+q+1] = nominal[indx+q+1],nominal[indx+q]
-                print(nominal)
+                #print(nominal)
         current = back+current*front
     if i.startswith(".begin"):
         flag = 1
