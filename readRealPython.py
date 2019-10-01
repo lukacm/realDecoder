@@ -1,8 +1,11 @@
 #!/usr/bin/python3
 import cmath
 import sys
+import csv
 import numpy as np
+import pandas as pd
 import re
+np.set_printoptions(threshold=sys.maxsize)
 
 def swap(i, wires):
     if i == 0:
@@ -16,7 +19,7 @@ def swap(i, wires):
             current = np.kron(current,ID)
     if i > j:
             current = np.kron(current, SWAP)
-    print(current)
+    #print(current)
     return current
 
 
@@ -30,6 +33,10 @@ CCNOT = np.array([[1, 0, 0, 0, 0, 0, 0, 0], [ 0, 1, 0, 0, 0, 0, 0, 0], [ 0, 0, 1
 CV = np.array([[ 1, 0, 0, 0], [ 0, 1, 0, 0], [ 0, 0, (1+complex(0,1))/2, (1-complex(0,1))/2], [ 0, 0, (1-complex(0,1))/2, (1+complex(0,1))/2]])
 
 filename = sys.argv[1]
+outfilename = filename+'.out'
+
+#outfile = open(outfilename, 'w')
+#writer = csv.writer(outfile)
 with open(filename) as f:
     content = f.readlines()
 # you may also want to remove whitespace characters like `\n` at the end of each line
@@ -46,11 +53,16 @@ for i in content:
         variables = result.group(1).split()
         variables.reverse()
         print(variables)
-    gates =+1
+    gates +=1
 
+outfile = open(outfilename, 'w')
+outfile.write(filename)
+outfile.write(str(variables))
+outfile.close()
 
 # Create all Toffoli gates
 matrices = dict()
+finals = dict()
 circuit = np.empty([gates,numvars,numvars])
 for i in range(numvars):
     a = np.eye(pow(2,(i+1)))
@@ -64,6 +76,7 @@ for i in range(numvars):
 
 #Process the real array
 flag = 0
+gates = 0
 exp3 = re.compile(".(\d+)")
 for i in content:
     if i.startswith(".end"):
@@ -76,36 +89,37 @@ for i in content:
         size = int(res[0])
         # create the k-controlled toffoli  and align it with lowest common bit
         for j in range(numvars-size):
-            #print('multiple: %i' %j)
             next = np.kron(ID,current)
-            print(next.shape)
             current = next
-        #nominal = variables
         nominal = variables.copy()
         target = vars[1:]
-        print(len(target))
         diff = numvars - len(target)
         front = np.eye(pow(2,numvars))
-        print(front.shape)
         back = np.eye(pow(2,numvars))
         for t in range(len(target)-1,-1,-1):
-            print(target)
-            print(nominal)
-            #print(target[t])
             if target[t] != nominal[t+diff]:
-                print('orig: {} current {}'.format(nominal[t+diff], target[t]))
                 indx = nominal.index(target[t])
                 swpsnum = abs(t+diff-indx)
-                print('Needs {}'.format(swpsnum))
                 for q in range(0,swpsnum):
-                    print('Insertng at {} in circuit with {} wires'.format(indx+q,numvars))
                     sw = swap(indx+q, numvars)
-                    front = front*sw
-                    back = sw*back
+                    front = front@sw
+                    back = sw@back
                     nominal[indx+q],nominal[indx+q+1] = nominal[indx+q+1],nominal[indx+q]
-                #print(nominal)
-        current = back+current*front
+        current = back@current@front
+        outfile = open(outfilename, 'a')
+        outfile.write('\nGate number {}, name {}'.format(gates, i))
+        outfile.close()
+        pd.DataFrame(current).to_csv(outfilename,mode='a', header=None, index=None)
+        finals[str(gates)] = current
+        gates += 1
     if i.startswith(".begin"):
         flag = 1
+final = np.eye(pow(2,numvars))
+for i in range(gates-1,-1,-1):
+    final = finals[str(i)]@final
 
+outfile = open(outfilename, 'a')
+outfile.write('\nFinal Matris Representation\n')
+outfile.close()
+pd.DataFrame(final).to_csv(outfilename,mode='a', header=None, index=None)
 
